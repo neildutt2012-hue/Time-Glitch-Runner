@@ -2,9 +2,9 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Gravity Shift Runner</title>
+<title>City Chaos Runner</title>
 <style>
-  body { margin:0; overflow:hidden; background:#000; font-family:monospace; }
+  body { margin:0; overflow:hidden; background:#000; font-family:monospace;}
   #scoreBox { position:absolute; top:10px; left:10px; color:#0ff; font-size:22px; }
   canvas { display:block; }
 </style>
@@ -28,60 +28,94 @@ window.onresize = () => {
 // Player
 let player = {
   x: 120,
-  y: H - 150,
-  w: 50,
-  h: 50,
-  gravityDirection: 1, // 1 = down, -1 = up
+  y: H - 180,
+  w: 60,
+  h: 80,
+  vy: 0,
+  gravity: 1,
+  jumping: false,
+  sliding: false,
+  slideTime: 0
 };
 
 // Obstacles
 let obstacles = [];
-let speed = 9;
+let speed = 10;
 let score = 0;
 let gameOver = false;
 
-// Spawn obstacles on ceiling or floor
-function spawnObstacle() {
-  const height = 60;
-  const lane = Math.random() < 0.5 ? "floor" : "ceiling";
+function randomObstacle() {
+  let type = Math.floor(Math.random() * 3);
 
-  obstacles.push({
-    x: W + 50,
-    y: lane === "floor" ? H - 100 - height : 100,
-    w: 50 + Math.random() * 30,
-    h: height,
-    lane
-  });
+  if (type === 0) {
+    // Tall obstacle
+    obstacles.push({
+      x: W + 50,
+      y: H - 180,
+      w: 60,
+      h: 80,
+      color: "#f0f"
+    });
+  }
+
+  if (type === 1) {
+    // Low obstacle (slide under)
+    obstacles.push({
+      x: W + 50,
+      y: H - 140,
+      w: 90,
+      h: 40,
+      color: "#ff0"
+    });
+  }
+
+  if (type === 2) {
+    // Flying drone
+    obstacles.push({
+      x: W + 50,
+      y: H - 300,
+      w: 70,
+      h: 50,
+      color: "#0f0"
+    });
+  }
 }
 
-setInterval(spawnObstacle, 1200);
+setInterval(randomObstacle, 1200);
 
 // Reset
 function reset() {
   obstacles = [];
-  speed = 9;
+  speed = 10;
   score = 0;
-  player.y = H - 150;
-  player.gravityDirection = 1;
+  player.y = H - 180;
+  player.vy = 0;
   gameOver = false;
 }
 
-// Update logic
+// Update
 function update() {
   if (gameOver) return;
 
-  // Move player to correct lane
-  if (player.gravityDirection === 1) {
-    // Fall down
-    player.y += 20;
-    if (player.y + player.h > H - 100) {
-      player.y = H - 100 - player.h;
-    }
-  } else {
-    // Fall up
-    player.y -= 20;
-    if (player.y < 100) {
-      player.y = 100;
+  // Jump physics
+  player.vy += player.gravity;
+  player.y += player.vy;
+
+  // Ground collision
+  if (player.y + player.h >= H - 100) {
+    player.y = H - 100 - player.h;
+    player.vy = 0;
+    player.jumping = false;
+  }
+
+  // Sliding
+  if (player.sliding) {
+    player.h = 40;
+    player.slideTime--;
+
+    if (player.slideTime <= 0) {
+      player.h = 80;
+      player.sliding = false;
     }
   }
 
@@ -90,7 +124,7 @@ function update() {
     o.x -= speed;
   }
 
-  // Remove off-screen
+  // Remove old ones
   obstacles = obstacles.filter(o => o.x + o.w > 0);
 
   // Collision
@@ -105,18 +139,18 @@ function update() {
     }
   }
 
-  speed += 0.003;
+  // Difficulty increase
+  speed += 0.002;
   score += 0.1;
   document.getElementById("score").textContent = Math.floor(score);
 }
 
-// Draw
+// Draw everything
 function draw() {
   ctx.clearRect(0, 0, W, H);
 
-  // Top + Bottom run bars
-  ctx.fillStyle = "#044";
-  ctx.fillRect(0, 100, W, 5);
+  // Ground
+  ctx.fillStyle = "#033";
   ctx.fillRect(0, H - 100, W, 5);
 
   // Player
@@ -124,8 +158,8 @@ function draw() {
   ctx.fillRect(player.x, player.y, player.w, player.h);
 
   // Obstacles
-  ctx.fillStyle = "#f0f";
   for (let o of obstacles) {
+    ctx.fillStyle = o.color;
     ctx.fillRect(o.x, o.y, o.w, o.h);
   }
 }
@@ -139,8 +173,13 @@ loop();
 
 // Controls
 window.addEventListener("keydown", e => {
-  if (e.code === "Space") {
-    player.gravityDirection *= -1; // Flip gravity
+  if (e.code === "Space" && !player.jumping) {
+    player.vy = -20;
+    player.jumping = true;
+  }
+  if (e.code === "ArrowDown" && !player.sliding && !player.jumping) {
+    player.sliding = true;
+    player.slideTime = 20;
   }
 });
 </script>
